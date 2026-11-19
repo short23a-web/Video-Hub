@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>VideoHub – Upload &amp; Watch</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#f6f5f3;--card:#fff;--text:#1c1b1a;--muted:#6b6862;--accent:#e4572e;--line:#e3e0db;color-scheme:light}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#151413;--card:#201f1d;--text:#f1efec;--muted:#a19d96;--line:#33312e;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#151413;--card:#201f1d;--text:#f1efec;--muted:#a19d96;--line:#33312e;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.5}
+header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--line)}
+.logo{font-weight:800;font-size:1.25rem;letter-spacing:-.02em}.logo span{color:var(--accent)}
+main{max-width:960px;margin:0 auto;padding:20px}
+.drop{border:2px dashed var(--line);background:var(--card);border-radius:16px;padding:32px 20px;text-align:center;cursor:pointer}
+.drop.over{border-color:var(--accent)}
+.drop b{display:block;font-size:1.1rem;margin-bottom:4px}.drop p{margin:0;color:var(--muted);font-size:.9rem}
+input[type=text]{width:100%;margin-top:12px;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--text);font:inherit}
+button{background:var(--accent);color:#fff;border:0;border-radius:10px;padding:12px 20px;font:inherit;font-weight:600;cursor:pointer;margin-top:12px}
+button:disabled{opacity:.5}
+#msg{color:var(--muted);font-size:.9rem;margin-top:8px;min-height:1.3em}
+h2{margin:32px 0 12px;font-size:1.1rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.card video{width:100%;display:block;background:#000;aspect-ratio:16/9}
+.card div{padding:10px 14px}.card strong{display:block}.card small{color:var(--muted)}
+.empty{color:var(--muted)}
+</style>
+</head>
+<body>
+<header><div class="logo">Video<span>Hub</span></div><small id="status" style="color:var(--muted)"></small></header>
+<main>
+  <div class="drop" id="drop"><b>Tap to choose a video</b><p>or drag &amp; drop · MP4, MOV, WebM · up to 20 MB</p></div>
+  <input type="file" id="file" accept="video/*" hidden>
+  <input type="text" id="title" placeholder="Video title" maxlength="80">
+  <button id="go" disabled>Upload video</button>
+  <div id="msg"></div>
+  <h2>Videos</h2>
+  <div class="grid" id="grid"></div>
+  <p class="empty" id="empty">No videos yet. Upload the first one!</p>
+</main>
+<script>
+(function(){
+var $=function(i){return document.getElementById(i)};
+var picked=null,assets=null,db=null,local=[];
+var MAX=20*1024*1024;
+function msg(t){$('msg').textContent=t}
+function pick(f){
+  if(!f)return;
+  if(!/^video\//.test(f.type)){msg('Please choose a video file.');return}
+  if(f.size>MAX){msg('That file is over 20 MB.');return}
+  picked=f;$('drop').querySelector('b').textContent=f.name;
+  if(!$('title').value)$('title').value=f.name.replace(/\.[^.]+$/,'');
+  $('go').disabled=false;msg('');
+}
+$('drop').onclick=function(){$('file').click()};
+$('file').onchange=function(e){pick(e.target.files[0])};
+$('drop').ondragover=function(e){e.preventDefault();this.classList.add('over')};
+$('drop').ondragleave=function(){this.classList.remove('over')};
+$('drop').ondrop=function(e){e.preventDefault();this.classList.remove('over');pick(e.dataTransfer.files[0])};
+
+function render(items){
+  var g=$('grid');g.innerHTML='';
+  $('empty').style.display=items.length?'none':'block';
+  items.forEach(function(v){
+    var c=document.createElement('div');c.className='card';
+    var vid=document.createElement('video');vid.controls=true;vid.preload='metadata';vid.src=v.url;
+    var d=document.createElement('div');
+    var s=document.createElement('strong');s.textContent=v.title||'Untitled';
+    var m=document.createElement('small');m.textContent=new Date(v.createdAt).toLocaleDateString()+' · '+(v.size/1048576).toFixed(1)+' MB';
+    d.appendChild(s);d.appendChild(m);c.appendChild(vid);c.appendChild(d);g.appendChild(c);
+  });
+}
+
+$('go').onclick=async function(){
+  if(!picked)return;
+  var btn=this;btn.disabled=true;msg('Uploading…');
+  var title=$('title').value.trim()||picked.name;
+  try{
+    local.unshift({title:title,url:URL.createObjectURL(picked),size:picked.size,createdAt:Date.now()});
+    render(local);
+    msg('Uploaded!');picked=null;$('title').value='';$('drop').querySelector('b').textContent='Tap to choose a video';$('file').value='';
+  }catch(e){
+    msg('Upload failed: '+((e&&e.message)||'try again'));btn.disabled=false;
+  }
+};
+
+$('status').textContent='Preview mode';
+})();
+</script>
+</body>
+</html>
